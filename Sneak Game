@@ -1,0 +1,143 @@
+import pygame      # 게임을 만들어야하니 파이게임
+import sys         # 종료기능을 추가하기 위한 시스템
+import time        # 진행시간,남은시간 표시용
+import random      # 랜덤한 수치 필요
+
+from pygame.locals import *
+
+
+WINDOW_WIDTH  = 800 # 화면 가로길이
+WINDOW_HEIGHT = 600 # 화면 세로길이
+GRID_SIZE = 20
+GRID_WIDTH = WINDOW_WIDTH / GRID_SIZE # 가로 1픽셀 길이
+GRID_HEIGHT = WINDOW_HEIGHT / GRID_SIZE # 세로 1 필셀
+
+WHITE = (255, 255 ,255) # 배경색
+RED = (150 , 0 , 0)   # 뱀 색
+Orange = (250 ,150 , 0 ) # 먹이색
+BLACK = (0,0,0)   # 점수표시 색
+
+
+up = (0, -1)  # 위로 이동
+down = (0,1)  # 아래로 이동
+left = (-1 , 0) #좌로 이동
+right = (1, 0) # 우로 이동
+
+fps = 10  #속도 증가용 변수
+
+
+class Python(object):      # 주인공 뱀
+    def __init__(self):
+        self.create()       #뱀 만들기
+        self.color = RED  # 뱀 색깔
+
+    def create(self):      # 뱀의 길이
+        self.length = 2    # 최초 길이
+        self.positions = [((WINDOW_WIDTH /2),(WINDOW_HEIGHT /2))]  #최초 위치 현재값: 중앙
+        self.direction = random.choice([up,down,left,right])     # 최초 진행 방향
+
+    def control(self,xy):                                # 뱀 조종
+        if (xy[0] * -1, xy[1] * -1) == self.direction:   # 진행방향과 정 반대로 움직인다면
+            return                                       # 해당 값을 무시
+        else:                                            # 정반대가 아니라면
+            self.direction = xy                          # 해당 방향으로 이동
+
+    def move(self):                                     # 뱀 이동
+        cur = self.positions[0]                         # 초기값
+        x ,y = self.direction
+        new = (((cur[0]+(x * GRID_SIZE)) % WINDOW_WIDTH) ,(cur[1] + (y * GRID_SIZE)) % WINDOW_HEIGHT)
+        if new in self.positions[2:]:                   #머리가 몸통을 물면
+            self.create()                               # 게임 종료
+        else:
+            self.positions.insert(0,new)                #그렇지 않다면 가장 앞부분 증가 +  가장 뒷부분 제거로 이동 표현
+            if len(self.positions) > self.length:
+                self.positions.pop()
+
+    def eat(self):                                     #먹이를 먹음 함수
+        self.length += 1                               # 길이가 하나 증가
+
+    def draw(self,surface):                             # 화면에 표시하는 함수
+        for p in self.positions:                        #뱀의 길이만큼
+            draw_object(surface,self.color, p)          #그려라
+
+class Feed(object):                                 # 먹이 관련 클래스
+    def __init__(self):
+        self.position = (0,0)                       #먹이 위치 초기화
+        self.color = Orange                         #먹이 색깔
+        self.create()                               #먹이 만들기 함수 실행
+
+    def create(self):                               #화면의 지정한 범위안의 랜덤한 위치에 먹이를 만들어라
+        self.position = (random.randint(0,GRID_WIDTH-1)*GRID_SIZE, random.randint(0,GRID_HEIGHT-1)*GRID_SIZE)
+
+    def draw(self,surface):                         #만들어진 먹이를 화면에 그리는 함수
+        draw_object(surface,self.color,self.position)
+
+def draw_object(surface,color,pos):
+    r = pygame.Rect((pos[0],pos[1]),(GRID_SIZE,GRID_SIZE))
+    pygame.draw.rect(surface,color,r)
+
+def check_eat(python,feed):                     #먹이를 뱀이 먹었는지 확인하는 함수
+    if python.positions[0] == feed.position:    #만약 뱀의 머리가 먹이에 닿으면
+        python.eat()                            #먹음 함수 실행
+        feed.create()                           #새로운 먹이 생성 함수 실행
+
+def show_info(length,speed,surface):            #점수판 표시함수
+    font = pygame.font.Font(None,34)
+    text = font.render('Length: '+str(length) +'     speed: '+ str(round(speed,2)),1,BLACK)
+    pos = text.get_rect()
+    pos.centerx = 150
+    surface.blit(text,pos)
+
+
+if __name__ == '__main__':   #파이썬의 메인  이게 마치 메인함수마냥 사용됨
+    python = Python()
+    feed = Feed()
+
+
+    pygame.init()  # 파이게임 초기화를 해줘야 사용가능
+    window = pygame.display.set_mode((WINDOW_WIDTH,WINDOW_HEIGHT),0,32) #게임창 만들어서 크기조절
+    pygame.display.set_caption('python Game') # 게임창에 뜨는 제목
+    surface = pygame.Surface(window.get_size())
+    surface = surface.convert()
+    surface.fill(WHITE)
+    clock = pygame.time.Clock()
+    pygame.key.set_repeat(1,40)
+    window.blit(surface,(0,0))
+
+
+
+
+    while True:                                    #방향키 반응시키는 반복문
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+            elif event.type == KEYDOWN:
+                if event.key == K_UP:
+                    python.control(up)
+                elif event.key == K_DOWN:
+                    python.control(down)
+                elif event.key == K_LEFT:
+                    python.control(left)
+                elif event.key == K_RIGHT:
+                    python.control(right)
+
+        surface.fill(WHITE)                      # 화면을 하얗게 칠해라
+        python.move()                            # 뱀 움직여라
+        check_eat(python,feed)                   # 먹이를 먹는지 체크해라
+        speed = (fps + python.length) /2         # 뱀길이와 시간에 따른 속도증가를 하라 (난이도)
+        show_info(python.length, speed,surface)  # 점수판을 표시해라
+        python.draw(surface)                     # 뱀을 그려라
+        feed.draw(surface)                       # 먹이를 그려라
+        window.blit(surface,(0,0))               # 게임창의 내용물들을 0,0위치에 표시해라
+        pygame.display.flip()                    # ????
+        pygame.display.update()                  # ????
+        clock.tick(speed)                        # 시계 움직여라
+
+
+
+
+
+
+
+
+
