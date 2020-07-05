@@ -1,6 +1,6 @@
 import pygame
 import sys
-from time import sleep #이게 뭐지
+from time import sleep #일시정지 기능
 import random
 
 windowwidth = 480           #게임창의 가로 크기
